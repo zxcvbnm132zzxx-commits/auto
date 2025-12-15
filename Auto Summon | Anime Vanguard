@@ -1,0 +1,214 @@
+--[[ 
+    Multi Mode Auto Summon - Refactored Version
+    tiwterz Credit System (Preserved)
+]]
+
+-- ===== Hidden Credit (SAFE VERSION) =====
+local __AUTHOR = "tiwterz"
+local __KEY = "TIWTERZ-2025"
+
+local function creditCheck()
+    -- ตรวจสอบเงื่อนไขผู้เขียน
+    if __AUTHOR ~= "tiwterz" then
+        return false
+    end
+    -- ตรวจสอบเงื่อนไขคีย์โดยการผกผัน (เพื่อป้องกันการมองเห็นคีย์ตรงๆ)
+    if __KEY ~= string.reverse("5202-ZRETWIT") then
+        return false
+    end
+    return true
+end
+
+if not creditCheck() then
+    warn("Credit check failed: Original author or key was modified.")
+    return -- หยุดสคริปต์เมื่อตรวจสอบไม่ผ่าน
+end
+-- =======================================
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- ตรวจสอบว่า LocalPlayer โหลดเสร็จแล้ว
+if not LocalPlayer then return end
+
+-- ===== State Variables =====
+local running = false
+local currentBanner = "Anniversary"
+local currentAmount = 100
+local delaySec = 1 -- ดีเลย์ระหว่างการเรียกใช้งาน SummonEvent
+
+-- ===== RemoteFunction Reference =====
+-- พยายามเข้าถึง RemoteEvent ทันที (หรือรอ)
+local SummonEvent = ReplicatedStorage:WaitForChild("Networking", 60)
+    :WaitForChild("Units", 60)
+    :WaitForChild("SummonEvent", 60)
+
+if not SummonEvent then
+    warn("SummonEvent RemoteFunction not found. Script will not function.")
+end
+
+-- ===== Helper Function for UI Creation =====
+local function createButton(parent, text, pos, size, font, color, cornerRadius)
+    local button = Instance.new("TextButton")
+    button.Size = size or UDim2.new(0, 140, 0, 40)
+    button.Position = pos
+    button.Text = text
+    button.Font = font or Enum.Font.GothamBold
+    button.TextScaled = true
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.BackgroundColor3 = color or Color3.fromRGB(70, 70, 70)
+    
+    local corner = Instance.new("UICorner", button)
+    corner.CornerRadius = cornerRadius or UDim.new(0, 8)
+    
+    button.Parent = parent
+    return button
+end
+
+-- ===== ScreenGui Setup =====
+local gui = Instance.new("ScreenGui")
+gui.Name = "MultiModeSummonGUI"
+gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+gui.ResetOnSpawn = false
+
+-- ===== Frame Setup =====
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 360, 0, 320)
+frame.Position = UDim2.new(0.5, -180, 0.5, -160)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Active = true -- เปิดใช้งาน Active เพื่อให้ลากได้
+frame.Draggable = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+
+-- ===== Title =====
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundTransparency = 1
+title.Text = "MULTI MODE AUTO SUMMON"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
+title.ZIndex = 2 -- ทำให้มั่นใจว่าอยู่เหนือองค์ประกอบอื่นๆ
+
+-- ===== Watermark / Credit =====
+local watermark = Instance.new("TextLabel", frame)
+watermark.AnchorPoint = Vector2.new(1, 1)
+watermark.Position = UDim2.new(1, -6, 1, -6)
+watermark.Size = UDim2.new(0, 150, 0, 18)
+watermark.BackgroundTransparency = 1
+watermark.Text = "tiwterz • Auto Summon"
+watermark.TextTransparency = 0.65
+watermark.TextColor3 = Color3.fromRGB(160, 160, 160)
+watermark.Font = Enum.Font.Gotham
+watermark.TextSize = 12
+
+-- ===== Banner Configuration and Buttons =====
+local bannerConfig = {
+    {Name = "Anniversary", Pos = UDim2.new(0.08, 0, 0.22, 0)},
+    {Name = "Special",     Pos = UDim2.new(0.52, 0, 0.22, 0)},
+    {Name = "Fall",        Pos = UDim2.new(0.08, 0, 0.38, 0)},
+    {Name = "Selection",   Pos = UDim2.new(0.52, 0, 0.38, 0)},
+}
+
+local bannerButtons = {}
+
+local function selectBanner(name, button)
+    currentBanner = name
+    for _, btn in pairs(bannerButtons) do
+        btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70) -- สีปกติ
+    end
+    button.BackgroundColor3 = Color3.fromRGB(0, 120, 200) -- สีเมื่อเลือก
+end
+
+for i, config in ipairs(bannerConfig) do
+    local btn = createButton(frame, config.Name:upper(), config.Pos)
+    bannerButtons[config.Name] = btn -- เก็บปุ่มไว้ในตารางด้วยชื่อเป็น Key
+
+    btn.MouseButton1Click:Connect(function() 
+        selectBanner(config.Name, btn) 
+    end)
+end
+
+-- ตั้งค่า Banner เริ่มต้น
+if bannerButtons[currentBanner] then
+    selectBanner(currentBanner, bannerButtons[currentBanner])
+end
+
+-- ===== Amount Configuration and Buttons =====
+local amountConfig = {
+    {Value = 10, Pos = UDim2.new(0.08, 0, 0.55, 0)},
+    {Value = 100, Pos = UDim2.new(0.52, 0, 0.55, 0)},
+}
+
+local amountButtons = {}
+
+local function selectAmount(value, button)
+    currentAmount = value
+    for _, btn in pairs(amountButtons) do
+        btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70) -- สีปกติ
+    end
+    button.BackgroundColor3 = Color3.fromRGB(0, 170, 0) -- สีเมื่อเลือก
+end
+
+for i, config in ipairs(amountConfig) do
+    local text = "x" .. config.Value
+    local btn = createButton(frame, text, config.Pos)
+    amountButtons[config.Value] = btn -- เก็บปุ่มไว้ในตารางด้วยค่าเป็น Key
+
+    btn.MouseButton1Click:Connect(function() 
+        selectAmount(config.Value, btn) 
+    end)
+end
+
+-- ตั้งค่า Amount เริ่มต้น
+if amountButtons[currentAmount] then
+    selectAmount(currentAmount, amountButtons[currentAmount])
+end
+
+-- ===== Start / Stop Control Button =====
+local control = createButton(frame, "START", 
+    UDim2.new(0.3, 0, 0.72, 0), 
+    UDim2.new(0, 160, 0, 45), 
+    Enum.Font.GothamBold, 
+    Color3.fromRGB(0, 170, 0),
+    UDim.new(0, 8)
+)
+
+local function updateControlUI()
+    if running then
+        control.Text = "STOP"
+        control.BackgroundColor3 = Color3.fromRGB(170, 0, 0) -- สีแดงสำหรับหยุด
+    else
+        control.Text = "START"
+        control.BackgroundColor3 = Color3.fromRGB(0, 170, 0) -- สีเขียวสำหรับเริ่ม
+    end
+end
+
+control.MouseButton1Click:Connect(function()
+    running = not running
+    updateControlUI()
+end)
+
+-- ===== Main Auto Summon Loop =====
+task.spawn(function()
+    while RunService.Stepped:Wait() do -- ใช้ Stepped:Wait() เพื่อควบคุมลูป (หรือใช้ while true do task.wait(delaySec))
+        if running and SummonEvent then
+            -- เรียกใช้ RemoteEvent
+            SummonEvent:FireServer("SummonMany", currentBanner, currentAmount)
+            
+            -- รอตามเวลาที่กำหนด
+            task.wait(delaySec)
+        elseif not running then
+            task.wait(0.1) -- รอสั้นๆ เมื่อหยุดทำงานเพื่อไม่ให้ลูปใช้ทรัพยากรมากเกินไป
+        else
+            -- หากไม่มี SummonEvent จะไม่รบกวนการทำงานของเกม
+            task.wait(1) 
+        end
+    end
+end)
+
+-- ตั้งค่า UI เริ่มต้นอีกครั้ง (ป้องกันการแสดงผลผิดพลาด)
+updateControlUI()
