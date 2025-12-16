@@ -1,0 +1,58 @@
+-- รอ Knit ให้พร้อมก่อน (สำคัญมาก)
+repeat task.wait() until game:GetService("ReplicatedStorage"):FindFirstChild("Packages")
+
+local RS = game:GetService("ReplicatedStorage")
+
+local Knit = RS
+    :WaitForChild("Packages")
+    :WaitForChild("_Index")
+    :WaitForChild("sleitnick_knit@1.7.0")
+    :WaitForChild("knit")
+
+-- รอ Knit.Start
+if Knit:FindFirstChild("Start") then
+    pcall(function()
+        Knit.Start():andThen(function()
+            print("Knit Started")
+        end)
+    end)
+end
+
+task.wait(2)
+
+-- RemoteFunction
+local RedeemRF = Knit
+    :WaitForChild("Services")
+    :WaitForChild("CodeService")
+    :WaitForChild("RF")
+    :WaitForChild("Redeem")
+
+-- 🔹 โค้ดทั้งหมด (ไม่เช็คเลเวลก่อน ปล่อยให้ server ตัดสิน)
+local Codes = {
+    "RELEASE!",
+    "THANKYOU!",
+    "UNRIVALED!",
+    "40kCCU!",
+    "NumberOne!",
+    "Universal!",
+    "Mainstream!",
+    "ThankYouUTD!",
+    "FixingBugs!",
+    "75kLikes!",
+    "ThousandsOfCodes!",
+    "MaxedOut!",
+    "SixSeven!"
+}
+
+print("=== START AUTO REDEEM ===")
+
+for _, code in ipairs(Codes) do
+    local ok, res = pcall(function()
+        return RedeemRF:InvokeServer(code)
+    end)
+
+    print("[REDEEM]", code, "OK:", ok, "RESULT:", res)
+    task.wait(1)
+end
+
+print("=== FINISHED ===")
